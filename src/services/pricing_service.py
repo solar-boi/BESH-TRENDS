@@ -8,13 +8,21 @@ for common operations.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime
 from typing import Tuple
 
 import pandas as pd
 
-from src.api.comed_client import ComEdClient, ComEdAPIError
-from src.models.pricing import PricePoint, PriceResponse
+from src.api.comed_client import ComEdClient
+from src.config.settings import Config
+from src.models.pricing import CustomRangeResult, PriceStats
+from src.services.pricing_calculations import (
+    build_hourly_with_raw_context,
+    compute_hourly_hour_ending,
+    compute_stats,
+    expand_date_range_to_bounds,
+)
+from src.utils.pricing_audit_logger import PricingAuditLogger
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +47,11 @@ class PricingService:
         print(f"Current price: {price}¢/kWh")
     """
 
-    def __init__(self, client: ComEdClient | None = None) -> None:
+    def __init__(
+        self,
+        client: ComEdClient | None = None,
+        audit_logger: PricingAuditLogger | None = None,
+    ) -> None:
         """
         Initialize the pricing service.
         
@@ -48,6 +60,11 @@ class PricingService:
                    client will be created with default settings.
         """
         self.client = client or ComEdClient()
+        self.audit_logger = audit_logger or PricingAuditLogger(
+            enabled=Config.PRICING_AUDIT_ENABLED,
+            file_path=Config.PRICING_AUDIT_FILE,
+            sample_limit=Config.PRICING_AUDIT_SAMPLE_LIMIT,
+        )
 
     def get_last_24_hours(self) -> pd.DataFrame:
         """
@@ -145,38 +162,91 @@ class PricingService:
             print(f"Average price: {stats['average']:.2f}¢/kWh")
         """
         if start is None or end is None:
-            response = self.client.get_five_minute_prices()
+            df = self.get_last_24_hours()
         else:
-            response = self.client.get_five_minute_prices_range(start, end)
-        
+            df = self.get_custom_range(start, end)
+
+        stats = compute_stats(df, "price")
         return {
-            "min": response.min_price,
-            "max": response.max_price,
-            "average": response.average_price,
-            "count": len(response),
-            "range_start": response.earliest.timestamp if response.earliest else None,
-            "range_end": response.latest.timestamp if response.latest else None,
+            "min": stats["min"],
+            "max": stats["max"],
+            "average": stats["average"],
+            "count": stats["count"],
+            "range_start": df["timestamp"].min() if not df.empty else None,
+            "range_end": df["timestamp"].max() if not df.empty else None,
         }
+
+    @staticmethod
+    def _build_price_stats(df: pd.DataFrame, price_column: str) -> PriceStats:
+        """Convert dict stats output into a typed PriceStats object."""
+        stats = compute_stats(df, price_column)
+        return PriceStats(
+            min_price=stats["min"],
+            max_price=stats["max"],
+            average_price=stats["average"],
+            count=stats["count"],
+        )
+
+    def get_custom_range_analysis(
+        self,
+        start_date: date,
+        end_date: date,
+    ) -> CustomRangeResult:
+        """
+        Return canonical raw+hourly outputs for a date range.
+
+        This is the backend source of truth used by the UI.
+        """
+        start_dt, end_dt = expand_date_range_to_bounds(start_date, end_date)
+        raw_df = self.get_custom_range(start_dt, end_dt)
+        hourly_df = compute_hourly_hour_ending(raw_df)
+        hourly_context_df = build_hourly_with_raw_context(raw_df, hourly_df)
+
+        result = CustomRangeResult(
+            requested_start_date=start_date,
+            requested_end_date=end_date,
+            expanded_start=start_dt,
+            expanded_end=end_dt,
+            raw_data=raw_df,
+            hourly_data=hourly_df,
+            raw_stats=self._build_price_stats(raw_df, "price"),
+            hourly_stats=self._build_price_stats(hourly_df, "avg_price"),
+            hourly_with_context=hourly_context_df,
+        )
+        self.audit_logger.log_custom_range_analysis(result)
+        return result
+
+    def get_hourly_custom_range(
+        self,
+        start_date: date,
+        end_date: date,
+    ) -> pd.DataFrame:
+        """
+        Fetch and aggregate prices to hourly averages for a date range.
+        
+        Uses "hour-ending" logic: 12:00-12:55 average is labeled as 1:00 PM.
+        Ensures full day coverage for the selected dates.
+        
+        Args:
+            start_date: Starting date.
+            end_date: Ending date.
+            
+        Returns:
+            DataFrame with 'hour' and 'avg_price' columns.
+        """
+        return self.get_custom_range_analysis(start_date, end_date).hourly_data
 
     def get_hourly_averages(self) -> pd.DataFrame:
         """
         Get hourly average prices for the last 24 hours.
         
-        Aggregates 5-minute data into hourly averages.
+        Aggregates 5-minute data into hourly averages using hour-ending logic.
         
         Returns:
             DataFrame with 'hour' and 'avg_price' columns.
         """
         df = self.get_last_24_hours()
-        
-        if df.empty:
-            return pd.DataFrame(columns=["hour", "avg_price"])
-        
-        df["hour"] = df["timestamp"].dt.floor("h")
-        hourly = df.groupby("hour")["price"].mean().reset_index()
-        hourly.columns = ["hour", "avg_price"]
-        
-        return hourly
+        return compute_hourly_hour_ending(df)
 
     def is_api_available(self) -> bool:
         """

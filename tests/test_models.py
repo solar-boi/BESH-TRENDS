@@ -5,7 +5,7 @@ import pytest
 import pandas as pd
 from datetime import datetime
 
-from src.models.pricing import PricePoint, PriceResponse
+from src.models.pricing import CustomRangeResult, PricePoint, PriceResponse, PriceStats
 
 
 class TestPricePoint:
@@ -129,3 +129,31 @@ class TestPriceResponse:
         assert len(response) == 2
         assert response.prices[0].price == 5.0
         assert response.prices[1].price == 5.5
+
+
+class TestResultModels:
+    """Tests for typed result models."""
+
+    def test_price_stats(self):
+        stats = PriceStats(min_price=1.0, max_price=3.0, average_price=2.0, count=2)
+        assert stats.min_price == 1.0
+        assert stats.max_price == 3.0
+        assert stats.average_price == 2.0
+        assert stats.count == 2
+
+    def test_custom_range_result(self):
+        raw_df = pd.DataFrame({"timestamp": [datetime(2024, 2, 1, 12, 0)], "price": [5.2]})
+        hourly_df = pd.DataFrame({"hour": [datetime(2024, 2, 1, 13, 0)], "avg_price": [5.2]})
+        result = CustomRangeResult(
+            requested_start_date=datetime(2024, 2, 1).date(),
+            requested_end_date=datetime(2024, 2, 1).date(),
+            expanded_start=datetime(2024, 2, 1, 0, 0),
+            expanded_end=datetime(2024, 2, 1, 23, 59),
+            raw_data=raw_df,
+            hourly_data=hourly_df,
+            raw_stats=PriceStats(min_price=5.2, max_price=5.2, average_price=5.2, count=1),
+            hourly_stats=PriceStats(min_price=5.2, max_price=5.2, average_price=5.2, count=1),
+            hourly_with_context=hourly_df,
+        )
+        assert result.raw_stats.count == 1
+        assert result.hourly_stats.average_price == 5.2

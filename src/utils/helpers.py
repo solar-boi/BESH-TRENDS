@@ -6,14 +6,20 @@ import logging
 import time
 from typing import Any, Callable, Tuple, Type, TypeVar
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
+
+
+def configure_logging(level: int = logging.INFO) -> None:
+    """Configure root logging from application entry points."""
+    root = logging.getLogger()
+    if not root.handlers:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+    root.setLevel(level)
 
 
 def retry_operation(

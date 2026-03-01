@@ -11,10 +11,14 @@ import argparse
 import sys
 from pathlib import Path
 
+from src.utils.helpers import configure_logging
+
 # Add the project root to the Python path
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
+
+configure_logging()
 
 
 def test_api():

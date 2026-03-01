@@ -3,8 +3,8 @@ Unit tests for the PricingService.
 """
 import pytest
 import pandas as pd
-from datetime import datetime
-from unittest.mock import Mock, patch
+from datetime import date, datetime
+from unittest.mock import Mock
 
 from src.services.pricing_service import PricingService
 from src.models.pricing import PricePoint, PriceResponse
@@ -154,6 +154,31 @@ class TestPricingService:
 
         assert isinstance(df, pd.DataFrame)
         assert df.empty
+
+    def test_get_custom_range_analysis(self):
+        """Returns canonical custom-range backend result."""
+        mock_client = Mock()
+        mock_client.get_five_minute_prices_range.return_value = create_sample_response()
+        mock_audit_logger = Mock()
+
+        service = PricingService(client=mock_client, audit_logger=mock_audit_logger)
+        result = service.get_custom_range_analysis(date(2024, 2, 1), date(2024, 2, 1))
+
+        assert result.requested_start_date == date(2024, 2, 1)
+        assert result.requested_end_date == date(2024, 2, 1)
+        assert isinstance(result.raw_data, pd.DataFrame)
+        assert isinstance(result.hourly_data, pd.DataFrame)
+        assert isinstance(result.hourly_with_context, pd.DataFrame)
+        assert result.raw_stats.count == 5
+        assert result.hourly_stats.count == 2
+        assert int(result.hourly_with_context["raw_point_count"].sum()) == 5
+        mock_audit_logger.log_custom_range_analysis.assert_called_once()
+
+    def test_get_custom_range_analysis_invalid_dates(self):
+        """Raises ValueError when start date is after end date."""
+        service = PricingService(client=Mock(), audit_logger=Mock())
+        with pytest.raises(ValueError):
+            service.get_custom_range_analysis(date(2024, 2, 2), date(2024, 2, 1))
 
     def test_is_api_available_true(self):
         """Returns True when API is healthy."""

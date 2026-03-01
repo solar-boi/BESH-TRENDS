@@ -37,6 +37,16 @@ class Config:
             str(BASE_DIR / ".dart" / "analytics_events.jsonl"),
         )
     )
+
+    # Structured pricing audit logs for raw/hourly verification
+    PRICING_AUDIT_ENABLED = os.getenv("PRICING_AUDIT_ENABLED", "true").lower() == "true"
+    PRICING_AUDIT_FILE = Path(
+        os.getenv(
+            "PRICING_AUDIT_FILE",
+            str(BASE_DIR / ".dart" / "pricing_audit.jsonl"),
+        )
+    )
+    PRICING_AUDIT_SAMPLE_LIMIT = int(os.getenv("PRICING_AUDIT_SAMPLE_LIMIT", 500))
     
     @classmethod
     def get_all_settings(cls) -> dict:

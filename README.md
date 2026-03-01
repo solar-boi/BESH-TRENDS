@@ -6,9 +6,10 @@ A real-time electricity pricing dashboard using the [ComEd Hourly Pricing API](h
 
 - **Real-time pricing**: View current hour average electricity prices
 - **5-minute granularity**: Access 5-minute interval pricing data for the last 24 hours
-- **Custom date ranges**: Query historical pricing data for any time period
-- **Price statistics**: View min, max, average prices and distributions
-- **Interactive charts**: Visualize pricing trends with Plotly
+- **Backend-first aggregation**: Compute hourly averages and stats in the service layer
+- **Custom date ranges**: Query historical pricing data with raw + hourly outputs
+- **Audit verification logs**: Persist raw values alongside hourly averages for validation
+- **Native Streamlit UI**: Keep the frontend thin using built-in Streamlit components
 
 ## Quick Start
 
@@ -48,14 +49,18 @@ src/
   config/
     settings.py         # Configuration
   models/
-    pricing.py          # Data models (PricePoint, PriceResponse)
+    pricing.py          # Data models and typed result contracts
   services/
+    pricing_calculations.py  # Pure aggregation/stat helpers
     pricing_service.py  # Business logic layer
   utils/
+    pricing_audit_logger.py  # Structured custom-range audit logging
     helpers.py          # Utility functions
   visualization/
     app.py              # Streamlit dashboard
 tests/
+  test_pricing_calculations.py # Pure calculation tests
+  test_pricing_audit_logger.py # Audit logging tests
   test_comed_client.py  # API client tests
   test_models.py        # Data model tests
   test_pricing_service.py # Service layer tests
@@ -106,6 +111,13 @@ timestamp, price = service.get_current_price()
 # Get statistics
 stats = service.get_price_statistics()
 print(f"Min: {stats['min']:.2f}¢, Max: {stats['max']:.2f}¢")
+
+# Get canonical custom-range analysis
+result = service.get_custom_range_analysis(
+    start_date=datetime(2024, 1, 15).date(),
+    end_date=datetime(2024, 1, 17).date(),
+)
+print(result.hourly_data.head())
 ```
 
 ## Configuration
@@ -118,6 +130,9 @@ Configuration is managed via environment variables or `src/config/settings.py`:
 | `COMED_REQUEST_TIMEOUT` | `30` | Request timeout (seconds) |
 | `RETRY_ATTEMPTS` | `3` | Number of retry attempts |
 | `RETRY_DELAY` | `2` | Delay between retries (seconds) |
+| `PRICING_AUDIT_ENABLED` | `true` | Enable structured custom-range audit logging |
+| `PRICING_AUDIT_FILE` | `.dart/pricing_audit.jsonl` | Path for JSONL audit output |
+| `PRICING_AUDIT_SAMPLE_LIMIT` | `500` | Max records per section in one audit event |
 
 ## Running Tests
 
@@ -138,6 +153,16 @@ This project uses the following ComEd Hourly Pricing API endpoints:
 3. **Current Hour Average** (`?type=currenthouraverage`): Returns the current hour's average price
 
 See the [official API documentation](https://hourlypricing.comed.com/hp-api/) for more details.
+
+## Verifying Aggregations
+
+When `PRICING_AUDIT_ENABLED=true`, each custom range request writes one JSONL event to
+`PRICING_AUDIT_FILE` containing:
+
+- requested and expanded ranges
+- raw 5-minute values used
+- computed hourly averages
+- per-hour reconciliation context (raw point count and bucket bounds)
 
 ## License
 

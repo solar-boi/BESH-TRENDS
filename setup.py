@@ -8,10 +8,8 @@ setup(
     package_dir={"": "src"},
     install_requires=[
         "streamlit>=1.33",
-        "plotly>=5.20",
         "pandas>=2.2",
         "requests>=2.32",
-        "plotly-express>=0.4",
     ],
     extras_require={
         "dev": [
