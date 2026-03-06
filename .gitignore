@@ -17,3 +17,7 @@ env/
 .vscode/
 *.swp
 *.swo
+.cursor/
+.dart/
+
+example.csv # example data

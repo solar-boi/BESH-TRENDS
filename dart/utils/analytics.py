@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.config.settings import Config
+from dart.config.settings import Config
 
 logger = logging.getLogger(__name__)
 

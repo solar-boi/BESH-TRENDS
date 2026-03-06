@@ -13,16 +13,16 @@ from typing import Tuple
 
 import pandas as pd
 
-from src.api.comed_client import ComEdClient
-from src.config.settings import Config
-from src.models.pricing import CustomRangeResult, PriceStats
-from src.services.pricing_calculations import (
+from dart.api.comed_client import ComEdClient
+from dart.config.settings import Config
+from dart.models.pricing import CustomRangeResult, PriceStats
+from dart.services.pricing_calculations import (
     build_hourly_with_raw_context,
     compute_hourly_hour_ending,
     compute_stats,
     expand_date_range_to_bounds,
 )
-from src.utils.pricing_audit_logger import PricingAuditLogger
+from dart.utils.pricing_audit_logger import PricingAuditLogger
 
 logger = logging.getLogger(__name__)
 
@@ -30,18 +30,18 @@ logger = logging.getLogger(__name__)
 class PricingService:
     """
     High-level service for accessing ComEd pricing data.
-    
+
     This service wraps the ComEdClient and provides:
     - DataFrame-ready outputs for visualization
     - Convenience methods for common time ranges
     - Error handling and logging
-    
+
     Example:
         service = PricingService()
-        
+
         # Get last 24 hours as DataFrame
         df = service.get_last_24_hours()
-        
+
         # Get current price
         timestamp, price = service.get_current_price()
         print(f"Current price: {price}¢/kWh")
@@ -54,7 +54,7 @@ class PricingService:
     ) -> None:
         """
         Initialize the pricing service.
-        
+
         Args:
             client: Optional ComEdClient instance. If not provided, a new
                    client will be created with default settings.
@@ -69,15 +69,15 @@ class PricingService:
     def get_last_24_hours(self) -> pd.DataFrame:
         """
         Fetch 5-minute prices for the last 24 hours as a DataFrame.
-        
+
         Returns:
             DataFrame with 'timestamp' and 'price' columns, sorted by timestamp.
             Returns empty DataFrame if fetch fails.
-            
+
         Example:
             service = PricingService()
             df = service.get_last_24_hours()
-            
+
             # Plot with plotly
             fig = px.line(df, x='timestamp', y='price')
         """
@@ -95,18 +95,18 @@ class PricingService:
     ) -> pd.DataFrame:
         """
         Fetch 5-minute prices for a custom time range as a DataFrame.
-        
+
         Args:
             start: Start datetime for the range.
             end: End datetime for the range.
-            
+
         Returns:
             DataFrame with 'timestamp' and 'price' columns, sorted by timestamp.
             Returns empty DataFrame if fetch fails.
-            
+
         Raises:
             ValueError: If start is after end.
-            
+
         Example:
             service = PricingService()
             start = datetime(2024, 1, 15, 8, 0)
@@ -115,7 +115,7 @@ class PricingService:
         """
         if start > end:
             raise ValueError(f"Start time ({start}) must be before end time ({end})")
-        
+
         try:
             response = self.client.get_five_minute_prices_range(start, end)
             return response.to_dataframe()
@@ -126,13 +126,13 @@ class PricingService:
     def get_current_price(self) -> Tuple[datetime, float]:
         """
         Get the current hour's average price.
-        
+
         Returns:
             Tuple of (timestamp, price_in_cents).
-            
+
         Raises:
             ComEdAPIError: If the API request fails.
-            
+
         Example:
             service = PricingService()
             timestamp, price = service.get_current_price()
@@ -148,14 +148,14 @@ class PricingService:
     ) -> dict:
         """
         Calculate price statistics for a time range.
-        
+
         Args:
             start: Start datetime (defaults to 24 hours ago).
             end: End datetime (defaults to now).
-            
+
         Returns:
             Dict with statistics: min, max, average, count, range_start, range_end.
-            
+
         Example:
             service = PricingService()
             stats = service.get_price_statistics()
@@ -223,14 +223,14 @@ class PricingService:
     ) -> pd.DataFrame:
         """
         Fetch and aggregate prices to hourly averages for a date range.
-        
+
         Uses "hour-ending" logic: 12:00-12:55 average is labeled as 1:00 PM.
         Ensures full day coverage for the selected dates.
-        
+
         Args:
             start_date: Starting date.
             end_date: Ending date.
-            
+
         Returns:
             DataFrame with 'hour' and 'avg_price' columns.
         """
@@ -239,9 +239,9 @@ class PricingService:
     def get_hourly_averages(self) -> pd.DataFrame:
         """
         Get hourly average prices for the last 24 hours.
-        
+
         Aggregates 5-minute data into hourly averages using hour-ending logic.
-        
+
         Returns:
             DataFrame with 'hour' and 'avg_price' columns.
         """
@@ -251,7 +251,7 @@ class PricingService:
     def is_api_available(self) -> bool:
         """
         Check if the ComEd API is available.
-        
+
         Returns:
             True if the API is responding, False otherwise.
         """

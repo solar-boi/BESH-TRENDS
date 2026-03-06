@@ -5,7 +5,7 @@ import pytest
 import pandas as pd
 from datetime import datetime
 
-from src.models.pricing import CustomRangeResult, PricePoint, PriceResponse, PriceStats
+from dart.models.pricing import CustomRangeResult, PricePoint, PriceResponse, PriceStats
 
 
 class TestPricePoint:

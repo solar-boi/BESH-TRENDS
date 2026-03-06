@@ -7,13 +7,14 @@ from pathlib import Path
 
 import streamlit as st
 
-# Adjust sys.path to allow absolute imports from src
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+_repo_root = str(Path(__file__).resolve().parents[2])
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
 
-from src.config.settings import Config
-from src.models.pricing import CustomRangeResult
-from src.services.pricing_service import PricingService
-from src.utils.helpers import configure_logging
+from dart.config.settings import Config
+from dart.models.pricing import CustomRangeResult
+from dart.services.pricing_service import PricingService
+from dart.utils.helpers import configure_logging
 
 configure_logging()
 

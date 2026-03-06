@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.models.pricing import CustomRangeResult, PriceStats
-from src.utils.pricing_audit_logger import PricingAuditLogger
+from dart.models.pricing import CustomRangeResult, PriceStats
+from dart.utils.pricing_audit_logger import PricingAuditLogger
 
 
 def _sample_result() -> CustomRangeResult:

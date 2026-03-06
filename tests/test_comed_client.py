@@ -6,8 +6,8 @@ import requests
 from datetime import datetime
 from unittest.mock import patch, Mock
 
-from src.api.comed_client import ComEdClient, ComEdAPIError
-from src.models.pricing import PricePoint, PriceResponse
+from dart.api.comed_client import ComEdClient, ComEdAPIError
+from dart.models.pricing import PricePoint, PriceResponse
 
 
 # Sample API response data
@@ -37,7 +37,7 @@ class TestComEdClient:
         assert client.base_url == "https://custom.url/api"
         assert client.timeout == 60
 
-    @patch("src.api.comed_client.requests.get")
+    @patch("dart.api.comed_client.requests.get")
     def test_get_five_minute_prices_success(self, mock_get):
         """Fetching 5-minute prices returns PriceResponse."""
         mock_response = Mock()
@@ -56,7 +56,7 @@ class TestComEdClient:
         call_args = mock_get.call_args
         assert call_args[1]["params"]["type"] == "5minutefeed"
 
-    @patch("src.api.comed_client.requests.get")
+    @patch("dart.api.comed_client.requests.get")
     def test_get_five_minute_prices_range_success(self, mock_get):
         """Fetching 5-minute prices for range returns PriceResponse."""
         mock_response = Mock()
@@ -88,7 +88,7 @@ class TestComEdClient:
         
         assert "must be before" in str(exc_info.value)
 
-    @patch("src.api.comed_client.requests.get")
+    @patch("dart.api.comed_client.requests.get")
     def test_get_current_hour_average_success(self, mock_get):
         """Fetching current hour average returns PricePoint."""
         mock_response = Mock()
@@ -105,7 +105,7 @@ class TestComEdClient:
         call_args = mock_get.call_args
         assert call_args[1]["params"]["type"] == "currenthouraverage"
 
-    @patch("src.api.comed_client.requests.get")
+    @patch("dart.api.comed_client.requests.get")
     def test_get_current_hour_average_empty_response(self, mock_get):
         """Raises ComEdAPIError when response is empty."""
         mock_response = Mock()
@@ -120,7 +120,7 @@ class TestComEdClient:
         
         assert "No data returned" in str(exc_info.value)
 
-    @patch("src.api.comed_client.requests.get")
+    @patch("dart.api.comed_client.requests.get")
     def test_fetch_invalid_response_format(self, mock_get):
         """Raises ComEdAPIError when response is not a list."""
         mock_response = Mock()
@@ -135,7 +135,7 @@ class TestComEdClient:
         
         assert "Unexpected API response format" in str(exc_info.value)
 
-    @patch("src.api.comed_client.requests.get")
+    @patch("dart.api.comed_client.requests.get")
     def test_health_check_success(self, mock_get):
         """Health check returns True when API is available."""
         mock_response = Mock()
@@ -146,7 +146,7 @@ class TestComEdClient:
         client = ComEdClient()
         assert client.health_check() is True
 
-    @patch("src.api.comed_client.requests.get")
+    @patch("dart.api.comed_client.requests.get")
     def test_health_check_failure(self, mock_get):
         """Health check returns False when API is unavailable."""
         mock_get.side_effect = Exception("Connection failed")
@@ -158,8 +158,8 @@ class TestComEdClient:
 class TestRetryBehavior:
     """Tests for retry behavior."""
 
-    @patch("src.utils.helpers.time.sleep")
-    @patch("src.api.comed_client.requests.get")
+    @patch("dart.utils.helpers.time.sleep")
+    @patch("dart.api.comed_client.requests.get")
     def test_retries_on_failure(self, mock_get, mock_sleep):
         """Client retries on transient failures."""
         # First two calls fail, third succeeds

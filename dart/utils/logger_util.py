@@ -8,7 +8,7 @@ import threading
 
 class StreamlitLogBuffer:
     """A thread-safe circular buffer to store the latest log messages."""
-    
+
     def __init__(self, max_size=50):
         self.buffer = deque(maxlen=max_size)
         self.lock = threading.Lock()
@@ -30,7 +30,7 @@ class StreamlitLogBuffer:
 
 class StreamlitLogHandler(logging.Handler):
     """A logging handler that redirects logs to a StreamlitLogBuffer."""
-    
+
     def __init__(self, buffer):
         super().__init__()
         self.buffer = buffer
@@ -48,7 +48,7 @@ def setup_streamlit_logging():
     handler = StreamlitLogHandler(log_buffer)
     formatter = logging.Formatter('%(name)s: %(message)s')
     handler.setFormatter(formatter)
-    
+
     root_logger = logging.getLogger()
     # Avoid adding multiple handlers if setup is called multiple times
     if not any(isinstance(h, StreamlitLogHandler) for h in root_logger.handlers):

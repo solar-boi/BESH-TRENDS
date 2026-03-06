@@ -11,7 +11,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.models.pricing import CustomRangeResult
+from dart.models.pricing import CustomRangeResult
 
 logger = logging.getLogger(__name__)
 

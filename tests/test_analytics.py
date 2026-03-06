@@ -3,7 +3,7 @@ Unit tests for lightweight analytics tracking.
 """
 import json
 
-from src.utils.analytics import AnalyticsTracker
+from dart.utils.analytics import AnalyticsTracker
 
 
 class TestAnalyticsTracker:

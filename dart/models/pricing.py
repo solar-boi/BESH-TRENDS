@@ -14,7 +14,7 @@ import pandas as pd
 class PricePoint:
     """
     Represents a single price point from the ComEd API.
-    
+
     Attributes:
         timestamp: The datetime of the price reading (UTC converted to local).
         price: The price in cents per kWh. Can be negative during periods of
@@ -27,13 +27,13 @@ class PricePoint:
     def from_api_response(cls, data: dict) -> "PricePoint":
         """
         Create a PricePoint from a ComEd API response dict.
-        
+
         Args:
             data: Dict with 'millisUTC' and 'price' keys.
-            
+
         Returns:
             PricePoint instance.
-            
+
         Raises:
             KeyError: If required keys are missing.
             ValueError: If data cannot be parsed.
@@ -48,7 +48,7 @@ class PricePoint:
 class PriceResponse:
     """
     Container for a collection of price points with metadata.
-    
+
     Attributes:
         prices: List of PricePoint objects.
         fetched_at: When the data was fetched from the API.
@@ -100,13 +100,13 @@ class PriceResponse:
     def to_dataframe(self) -> pd.DataFrame:
         """
         Convert price points to a pandas DataFrame.
-        
+
         Returns:
             DataFrame with 'timestamp' and 'price' columns, sorted by timestamp.
         """
         if not self.prices:
             return pd.DataFrame(columns=["timestamp", "price"])
-        
+
         data = [
             {"timestamp": p.timestamp, "price": p.price}
             for p in self.prices
@@ -119,10 +119,10 @@ class PriceResponse:
     def from_api_response(cls, data: list[dict]) -> "PriceResponse":
         """
         Create a PriceResponse from a list of API response dicts.
-        
+
         Args:
             data: List of dicts with 'millisUTC' and 'price' keys.
-            
+
         Returns:
             PriceResponse instance.
         """

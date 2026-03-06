@@ -1,168 +1,240 @@
-# DART - ComEd Real-Time Pricing Dashboard
+# DART
 
-A real-time electricity pricing dashboard using the [ComEd Hourly Pricing API](https://hourlypricing.comed.com/hp-api/).
+DART is a Streamlit-based dashboard and Python package for exploring ComEd real-time electricity pricing data through the [ComEd Hourly Pricing API](https://hourlypricing.comed.com/hp-api/).
 
-## Features
+The project is organized as a small layered application:
 
-- **Real-time pricing**: View current hour average electricity prices
-- **5-minute granularity**: Access 5-minute interval pricing data for the last 24 hours
-- **Backend-first aggregation**: Compute hourly averages and stats in the service layer
-- **Custom date ranges**: Query historical pricing data with raw + hourly outputs
-- **Audit verification logs**: Persist raw values alongside hourly averages for validation
-- **Native Streamlit UI**: Keep the frontend thin using built-in Streamlit components
+- `dart.api` handles ComEd API requests
+- `dart.services` contains business logic and aggregation workflows
+- `dart.models` defines typed result objects
+- `dart.visualization` provides the Streamlit UI
+- `dart.utils` contains shared helpers and audit logging support
 
-## Quick Start
+## What The App Does
 
-### Installation
+DART focuses on a few practical pricing workflows:
+
+- Shows the current hour average price from ComEd
+- Displays the latest 24 hours of raw 5-minute pricing data
+- Computes summary statistics in the backend service layer
+- Supports custom date range analysis with hourly aggregation
+- Exposes the raw records used to build each hourly aggregate
+- Optionally writes structured audit logs for verification and troubleshooting
+
+## Requirements
+
+- Python `3.10+`
+- Internet access to reach the ComEd pricing API
+
+## Installation
+
+### Option 1: Install runtime dependencies only
 
 ```bash
-# Clone the repository
 git clone <repo-url>
 cd DART-main
-
-# Install dependencies
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Test API Connectivity
+### Option 2: Install as a local package
+
+This is the better option if you want the `dart` package available for imports and local development.
 
 ```bash
-python -m src --test-api
+git clone <repo-url>
+cd DART-main
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
-### Run the Dashboard
+For local development with test dependencies:
 
 ```bash
-python -m src
-# or directly:
-streamlit run src/visualization/app.py
+pip install -e ".[dev]"
 ```
 
-## Project Structure
+## Running The Application
 
-```
-src/
-  __init__.py           # Package exports
-  __main__.py           # CLI entry point
-  api/
-    comed_client.py     # ComEd API client
-  config/
-    settings.py         # Configuration
-  models/
-    pricing.py          # Data models and typed result contracts
-  services/
-    pricing_calculations.py  # Pure aggregation/stat helpers
-    pricing_service.py  # Business logic layer
-  utils/
-    pricing_audit_logger.py  # Structured custom-range audit logging
-    helpers.py          # Utility functions
-  visualization/
-    app.py              # Streamlit dashboard
-tests/
-  test_pricing_calculations.py # Pure calculation tests
-  test_pricing_audit_logger.py # Audit logging tests
-  test_comed_client.py  # API client tests
-  test_models.py        # Data model tests
-  test_pricing_service.py # Service layer tests
+### Launch the dashboard
+
+```bash
+python -m dart
 ```
 
-## API Reference
+Or run the Streamlit app directly:
 
-### ComEdClient
+```bash
+streamlit run dart/visualization/app.py
+```
 
-The main API client for interacting with the ComEd Hourly Pricing API.
+### Test API connectivity from the CLI
+
+```bash
+python -m dart --test-api
+```
+
+The CLI connectivity check will:
+
+- verify the ComEd API is reachable
+- print the current hour average price
+- print summary statistics for the latest 24-hour window
+
+## Package Usage
+
+### Low-level API client
+
+Use `ComEdClient` if you want direct access to the ComEd endpoints.
 
 ```python
-from src.api.comed_client import ComEdClient
+from datetime import datetime
+
+from dart.api.comed_client import ComEdClient
 
 client = ComEdClient()
 
-# Get 5-minute prices for last 24 hours
-response = client.get_five_minute_prices()
-print(f"Got {len(response)} price points")
-print(f"Average: {response.average_price:.2f}¢/kWh")
+latest = client.get_five_minute_prices()
+print(f"Fetched {len(latest)} price points")
+print(f"Average: {latest.average_price:.2f} cents/kWh")
 
-# Get prices for a custom time range
-from datetime import datetime
 start = datetime(2024, 1, 15, 8, 0)
 end = datetime(2024, 1, 15, 17, 0)
-response = client.get_five_minute_prices_range(start, end)
+historical = client.get_five_minute_prices_range(start, end)
 
-# Get current hour average
-price_point = client.get_current_hour_average()
-print(f"Current price: {price_point.price:.2f}¢/kWh")
+current = client.get_current_hour_average()
+print(current.timestamp, current.price)
 ```
 
-### PricingService
+### Service layer
 
-High-level service for common operations with DataFrame outputs.
+Use `PricingService` if you want DataFrame-ready outputs and higher-level workflows.
 
 ```python
-from src.services.pricing_service import PricingService
+from datetime import date
+
+from dart.services.pricing_service import PricingService
 
 service = PricingService()
 
-# Get last 24 hours as DataFrame
-df = service.get_last_24_hours()
-
-# Get current price
+raw_df = service.get_last_24_hours()
 timestamp, price = service.get_current_price()
-
-# Get statistics
 stats = service.get_price_statistics()
-print(f"Min: {stats['min']:.2f}¢, Max: {stats['max']:.2f}¢")
 
-# Get canonical custom-range analysis
 result = service.get_custom_range_analysis(
-    start_date=datetime(2024, 1, 15).date(),
-    end_date=datetime(2024, 1, 17).date(),
+    start_date=date(2024, 1, 15),
+    end_date=date(2024, 1, 17),
 )
+
 print(result.hourly_data.head())
+print(result.raw_stats.count, result.hourly_stats.average_price)
 ```
+
+## Architecture Overview
+
+```text
+dart/
+  __init__.py
+  __main__.py
+  api/
+    comed_client.py
+  config/
+    settings.py
+  models/
+    pricing.py
+  services/
+    pricing_calculations.py
+    pricing_service.py
+  utils/
+    analytics.py
+    helpers.py
+    logger_util.py
+    pricing_audit_logger.py
+    share_links.py
+  visualization/
+    app.py
+tests/
+  test_analytics.py
+  test_comed_client.py
+  test_models.py
+  test_package_layout.py
+  test_pricing_audit_logger.py
+  test_pricing_calculations.py
+  test_pricing_service.py
+  test_share_links.py
+```
+
+### Responsibilities by layer
+
+- `dart.api.comed_client` wraps ComEd HTTP calls, retries, and response parsing
+- `dart.services.pricing_calculations` contains pure aggregation and statistics helpers
+- `dart.services.pricing_service` orchestrates data fetches, transforms, and audit logging
+- `dart.models.pricing` provides `PricePoint`, `PriceResponse`, `PriceStats`, and `CustomRangeResult`
+- `dart.visualization.app` renders the dashboard with cached service calls
 
 ## Configuration
 
-Configuration is managed via environment variables or `src/config/settings.py`:
+Runtime configuration is centralized in `dart/config/settings.py` and can be overridden with environment variables.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `COMED_API_BASE_URL` | `https://hourlypricing.comed.com/api` | API base URL |
-| `COMED_REQUEST_TIMEOUT` | `30` | Request timeout (seconds) |
-| `RETRY_ATTEMPTS` | `3` | Number of retry attempts |
-| `RETRY_DELAY` | `2` | Delay between retries (seconds) |
-| `PRICING_AUDIT_ENABLED` | `true` | Enable structured custom-range audit logging |
-| `PRICING_AUDIT_FILE` | `.dart/pricing_audit.jsonl` | Path for JSONL audit output |
-| `PRICING_AUDIT_SAMPLE_LIMIT` | `500` | Max records per section in one audit event |
+| `COMED_API_BASE_URL` | `https://hourlypricing.comed.com/api` | Base URL for the ComEd pricing API |
+| `COMED_REQUEST_TIMEOUT` | `30` | Request timeout in seconds |
+| `RETRY_ATTEMPTS` | `3` | Number of retry attempts for API calls |
+| `RETRY_DELAY` | `2` | Delay between retries in seconds |
+| `DASHBOARD_TITLE` | `ComEd Real-Time Pricing Dashboard` | Browser/page title for the Streamlit app |
+| `AUTO_REFRESH_SECONDS` | `300` | Refresh interval shown in the dashboard sidebar |
+| `DASHBOARD_SHARE_BASE_URL` | `http://localhost:8501` | Base URL used by share-link helpers |
+| `ANALYTICS_EVENTS_FILE` | `.dart/analytics_events.jsonl` | JSONL file for lightweight analytics events |
+| `PRICING_AUDIT_ENABLED` | `true` | Enables structured audit logging for custom-range analysis |
+| `PRICING_AUDIT_FILE` | `.dart/pricing_audit.jsonl` | JSONL output path for pricing audit events |
+| `PRICING_AUDIT_SAMPLE_LIMIT` | `500` | Maximum number of records included per audit section |
 
-## Running Tests
+## Audit Logging
+
+When `PRICING_AUDIT_ENABLED=true`, custom range analysis writes a JSONL event to `PRICING_AUDIT_FILE`.
+
+Each event includes:
+
+- requested start and end dates
+- expanded datetime bounds used for the fetch
+- raw 5-minute values included in the calculation
+- computed hourly averages
+- per-hour reconciliation context, including raw bucket counts and timestamp bounds
+- raw and hourly summary statistics
+
+This is useful when validating aggregation behavior or investigating unexpected pricing results.
+
+## Testing
+
+Run the test suite with:
 
 ```bash
-# Run all tests
-pytest tests/ -v
-
-# Run with coverage
-pytest tests/ -v --cov=src
+pytest tests -v
 ```
 
-## API Endpoints Used
+If you want coverage output, install `pytest-cov` separately and run:
 
-This project uses the following ComEd Hourly Pricing API endpoints:
+```bash
+pytest tests -v --cov=dart
+```
 
-1. **5-Minute Feed** (`?type=5minutefeed`): Returns all 5-minute prices from the last 24 hours
-2. **5-Minute Feed with Range** (`?type=5minutefeed&datestart=...&dateend=...`): Returns prices for a custom time range
-3. **Current Hour Average** (`?type=currenthouraverage`): Returns the current hour's average price
+## API Endpoints
 
-See the [official API documentation](https://hourlypricing.comed.com/hp-api/) for more details.
+DART currently uses these ComEd API endpoints:
 
-## Verifying Aggregations
+1. `?type=5minutefeed` for the most recent 24-hour 5-minute feed
+2. `?type=5minutefeed&datestart=...&dateend=...` for historical range queries
+3. `?type=currenthouraverage` for the current hour average price
 
-When `PRICING_AUDIT_ENABLED=true`, each custom range request writes one JSONL event to
-`PRICING_AUDIT_FILE` containing:
+See the official [ComEd Hourly Pricing API documentation](https://hourlypricing.comed.com/hp-api/) for endpoint details and response semantics.
 
-- requested and expanded ranges
-- raw 5-minute values used
-- computed hourly averages
-- per-hour reconciliation context (raw point count and bucket bounds)
+## Notes
+
+- The installable package name is `dart-pricing-pipeline`
+- The importable Python package is `dart`
+- Runtime artifacts such as audit logs are written under `.dart/` by default
 
 ## License
 

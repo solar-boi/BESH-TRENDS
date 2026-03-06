@@ -3,7 +3,7 @@ Unit tests for share link utility helpers.
 """
 from datetime import datetime
 
-from src.utils.share_links import (
+from dart.utils.share_links import (
     SHARE_REF,
     build_share_message,
     build_shared_range_url,

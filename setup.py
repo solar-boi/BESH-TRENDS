@@ -4,8 +4,7 @@ setup(
     name="dart-pricing-pipeline",
     version="0.1.0",
     description="ComEd pricing data acquisition and analysis pipeline",
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
+    packages=find_packages(include=["dart", "dart.*"]),
     install_requires=[
         "streamlit>=1.33",
         "pandas>=2.2",

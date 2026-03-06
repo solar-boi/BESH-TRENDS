@@ -29,15 +29,15 @@ def retry_operation(
 ) -> Callable:
     """
     Decorator for retrying operations that may fail due to network issues.
-    
+
     Args:
         max_attempts: Maximum number of retry attempts.
         delay: Delay between retries in seconds.
         exceptions: Tuple of exceptions to catch and retry on.
-        
+
     Returns:
         Decorated function that will retry on failure.
-        
+
     Example:
         @retry_operation(max_attempts=3, delay=2, exceptions=(requests.RequestException,))
         def fetch_data():
@@ -77,11 +77,11 @@ def retry_operation(
 def format_price(price_cents: float, decimals: int = 2) -> str:
     """
     Format a price in cents for display.
-    
+
     Args:
         price_cents: Price in cents per kWh.
         decimals: Number of decimal places.
-        
+
     Returns:
         Formatted string like "5.23¢/kWh".
     """
@@ -91,11 +91,11 @@ def format_price(price_cents: float, decimals: int = 2) -> str:
 def format_price_change(old_price: float, new_price: float) -> str:
     """
     Format a price change with direction indicator.
-    
+
     Args:
         old_price: Previous price in cents.
         new_price: Current price in cents.
-        
+
     Returns:
         Formatted string like "+1.23¢" or "-0.45¢".
     """
