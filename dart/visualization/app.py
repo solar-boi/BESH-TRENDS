@@ -5,8 +5,9 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import altair as alt
+import pandas as pd
 import streamlit as st
-
 _repo_root = str(Path(__file__).resolve().parents[2])
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
@@ -107,6 +108,47 @@ def _render_narrative_message(title: str, level: str, description: str) -> None:
     renderer(message)
 
 
+def _render_interactive_line_chart(
+    df: pd.DataFrame, 
+    x_col: str, 
+    y_cols: list[str], 
+    time_format: str = "%b %d, %I:%M %p",
+) -> None:
+    """Render an Altair line chart with shared hover tooltips."""
+    hover = alt.selection_point(
+        fields=[x_col],
+        nearest=True,
+        on="mouseover",
+        empty=False,
+    )
+
+    base = alt.Chart(df).encode(x=alt.X(f"{x_col}:T", title=""))
+
+    tooltips_list = [alt.Tooltip(f"{x_col}:T", title="Time", format=time_format)]
+    for y_col in y_cols:
+        tooltips_list.append(alt.Tooltip(f"{y_col}:Q", title=y_col, format=".2f"))
+
+    rule = base.mark_rule(color="gray").encode(
+        opacity=alt.condition(hover, alt.value(0.5), alt.value(0)),
+        tooltip=tooltips_list,
+    ).add_params(hover)
+
+    melted = df.melt(id_vars=[x_col], value_vars=y_cols, var_name="Metric", value_name="Price")
+
+    lines = alt.Chart(melted).mark_line().encode(
+        x=alt.X(f"{x_col}:T", title=""),
+        y=alt.Y("Price:Q", title="Price (¢/kWh)"),
+        color=alt.Color("Metric:N", legend=alt.Legend(title="", orient="bottom")),
+    )
+
+    points = lines.mark_circle().encode(
+        opacity=alt.condition(hover, alt.value(1), alt.value(0)),
+    )
+
+    chart = (lines + points + rule).interactive()
+    st.altair_chart(chart, use_container_width=True)
+
+
 def render_sidebar(service: PricingService) -> None:
     """Render sidebar controls and reading guidance."""
     st.sidebar.title("Dashboard controls")
@@ -180,7 +222,7 @@ def render_current_price(service: PricingService) -> None:
         with st.container(border=True):
             st.markdown("##### Current hour")
             st.metric(
-                "Current hour average",
+                "Average price",
                 _format_price(price),
                 delta=_format_delta(delta_to_average, "vs 24h average"),
             )
@@ -191,7 +233,7 @@ def render_current_price(service: PricingService) -> None:
     with col2:
         with st.container(border=True):
             st.markdown("##### Recent range")
-            st.metric("24-hour average", _format_price(recent_highlights.average_price))
+            st.metric("Average price", _format_price(recent_highlights.average_price))
             st.caption(
                 f"Observed spread: {_format_price(recent_highlights.spread)} "
                 f"from {_format_price(recent_highlights.min_price)} to "
@@ -201,7 +243,7 @@ def render_current_price(service: PricingService) -> None:
     with col3:
         with st.container(border=True):
             st.markdown("##### Market behavior")
-            st.metric("Negative 5-minute intervals", str(recent_highlights.negative_intervals))
+            st.metric("Negative intervals", str(recent_highlights.negative_intervals))
             st.caption(
                 f"Tracking {recent_highlights.count} recent points ending "
                 f"{_format_timestamp(recent_highlights.latest_timestamp, include_date=True)}."
@@ -236,23 +278,20 @@ def render_last_24_hours(service: PricingService) -> None:
         st.metric(
             "Highest 5-minute price",
             _format_price(highlights.max_price),
-            delta=_format_timestamp(highlights.max_timestamp),
-            delta_color="off",
         )
+        st.caption(f"At {_format_timestamp(highlights.max_timestamp)}")
     with m3:
         st.metric(
             "Lowest 5-minute price",
             _format_price(highlights.min_price),
-            delta=_format_timestamp(highlights.min_timestamp),
-            delta_color="off",
         )
+        st.caption(f"At {_format_timestamp(highlights.min_timestamp)}")
     with m4:
         st.metric(
             "Observed spread",
             _format_price(highlights.spread),
-            delta=f"{highlights.negative_intervals} negative intervals",
-            delta_color="off",
         )
+        st.caption(f"{highlights.negative_intervals} negative intervals")
 
     trend_tab, pattern_tab, data_tab = st.tabs(["Trend view", "Hourly pattern", "Source data"])
 
@@ -260,7 +299,11 @@ def render_last_24_hours(service: PricingService) -> None:
         st.caption(
             "The smoothed line helps you spot whether a spike is sustained or just a short-lived move."
         )
-        st.line_chart(trend_df, use_container_width=True)
+        _render_interactive_line_chart(
+            trend_df.reset_index(),
+            x_col="timestamp",
+            y_cols=trend_df.columns.tolist(),
+        )
         c1, c2 = st.columns(2)
         with c1:
             with st.container(border=True):
@@ -382,6 +425,12 @@ def render_custom_range(service: PricingService) -> None:
         base_label="Hourly average",
         rolling_label="4-hour rolling average",
     )
+    if not hourly_trend.empty:
+        hourly_trend.insert(
+            1,
+            "2-hour rolling average",
+            hourly_trend["Hourly average"].rolling(2, min_periods=1).mean()
+        )
     clock_hour_profile = build_hourly_profile(
         result.hourly_data,
         price_column="avg_price",
@@ -397,23 +446,20 @@ def render_custom_range(service: PricingService) -> None:
         st.metric(
             "Highest hour",
             _format_price(result.hourly_stats.max_price),
-            delta=_format_timestamp(hourly_highlights.max_timestamp, include_date=True),
-            delta_color="off",
         )
+        st.caption(f"At {_format_timestamp(hourly_highlights.max_timestamp, include_date=True)}")
     with m3:
         st.metric(
             "Lowest hour",
             _format_price(result.hourly_stats.min_price),
-            delta=_format_timestamp(hourly_highlights.min_timestamp, include_date=True),
-            delta_color="off",
         )
+        st.caption(f"At {_format_timestamp(hourly_highlights.min_timestamp, include_date=True)}")
     with m4:
         st.metric(
             "Hourly buckets",
             str(result.hourly_stats.count),
-            delta=f"{result.raw_stats.count} raw points",
-            delta_color="off",
         )
+        st.caption(f"{result.raw_stats.count} raw points")
 
     st.info(
         "Hour-ending logic is used here: values from 12:00 through 12:55 are labeled as the 1:00 PM"
@@ -429,35 +475,37 @@ def render_custom_range(service: PricingService) -> None:
     )
 
     with overview_tab:
-        c1, c2 = st.columns([2, 1], gap="large")
-        with c1:
-            with st.container(border=True):
-                st.markdown("##### Hourly trend across the selected period")
-                st.line_chart(hourly_trend, use_container_width=True)
-                st.caption(
-                    "The rolling comparison line smooths short-term noise and highlights broader"
-                    " shifts across the chosen historical window."
+        with st.container(border=True):
+            st.markdown("##### Hourly trend across the selected period")
+            _render_interactive_line_chart(
+                hourly_trend.reset_index(),
+                x_col="timestamp",
+                y_cols=hourly_trend.columns.tolist(),
+            )
+            st.caption(
+                "The rolling comparison line smooths short-term noise and highlights broader"
+                " shifts across the chosen historical window."
+            )
+            
+        with st.container(border=True):
+            if len(daily_summary) > 1:
+                st.markdown("##### Daily envelope")
+                _render_interactive_line_chart(
+                    daily_summary,
+                    x_col="Date",
+                    y_cols=["Average hourly price", "Peak hourly price", "Lowest hourly price"],
+                    time_format="%b %d, %Y",
                 )
-        with c2:
-            with st.container(border=True):
-                if len(daily_summary) > 1:
-                    st.markdown("##### Daily envelope")
-                    st.line_chart(
-                        daily_summary.set_index("Date")[
-                            ["Average hourly price", "Peak hourly price", "Lowest hourly price"]
-                        ],
-                        use_container_width=True,
-                    )
-                    st.caption(
-                        "This makes it easier to compare how each day opened, peaked, and settled"
-                        " within the selected range."
-                    )
-                else:
-                    st.markdown("##### Average price by clock hour")
-                    st.bar_chart(clock_hour_profile, use_container_width=True)
-                    st.caption(
-                        "A single-day selection uses a clock-hour profile instead of a daily summary."
-                    )
+                st.caption(
+                    "This makes it easier to compare how each day opened, peaked, and settled"
+                    " within the selected range."
+                )
+            else:
+                st.markdown("##### Average price by clock hour")
+                st.bar_chart(clock_hour_profile, use_container_width=True)
+                st.caption(
+                    "A single-day selection uses a clock-hour profile instead of a daily summary."
+                )
 
         narrative = build_price_narrative(
             hourly_highlights.latest_price,
@@ -484,11 +532,17 @@ def render_custom_range(service: PricingService) -> None:
             chart_ceiling = (
                 float(result.hourly_data["avg_price"].max()) if not result.hourly_data.empty else None
             )
-            st.dataframe(
+            
+            # Use columns to position the localized instruction cleanly
+            st.caption("Click any row below to filter the Hourly Detail tab to only that day.")
+            
+            event = st.dataframe(
                 daily_summary,
                 use_container_width=True,
                 hide_index=True,
                 height=360,
+                on_select="rerun",
+                selection_mode="single-row",
                 column_config={
                     "Date": st.column_config.TextColumn("Date"),
                     "Average hourly price": st.column_config.NumberColumn(
@@ -516,30 +570,50 @@ def render_custom_range(service: PricingService) -> None:
                     ),
                 },
             )
+            
+            # Identify if the user selected a specific daily summary row
+            selected_date = None
+            if len(event.selection.rows) > 0:
+                selected_row = event.selection.rows[0]
+                selected_date = daily_summary.iloc[selected_row]["Date"]
 
     with hourly_tab:
-        c1, c2 = st.columns([1, 1.2], gap="large")
-        with c1:
-            with st.container(border=True):
-                st.markdown("##### Average price by clock hour")
-                st.bar_chart(clock_hour_profile, use_container_width=True)
-                st.caption(
-                    "This profile averages matching clock hours across the selected range."
-                )
-        with c2:
-            st.dataframe(
-                result.hourly_data.rename(columns={"hour": "Hour ending", "avg_price": "Average price"}),
-                use_container_width=True,
-                hide_index=True,
-                height=340,
-                column_config={
-                    "Hour ending": st.column_config.DatetimeColumn("Hour ending"),
-                    "Average price": st.column_config.NumberColumn(
-                        "Average price (¢/kWh)",
-                        format="%.2f",
-                    ),
-                },
+        
+        # Filter the underlying result data to the selected day, or show all if none selected
+        view_data = result.hourly_data.copy()
+        view_profile = clock_hour_profile
+        
+        if selected_date:
+            view_data = view_data[view_data["hour"].dt.strftime("%Y-%m-%d") == selected_date]
+            view_profile = build_hourly_profile(
+                view_data,
+                price_column="avg_price",
+                timestamp_column="hour",
+                value_label="Average hourly price",
             )
+            st.info(f"Viewing localized detail for **{selected_date}**.")
+        
+        with st.container(border=True):
+            st.markdown("##### Average price by clock hour")
+            st.bar_chart(view_profile, use_container_width=True)
+            if selected_date:
+                 st.caption(f"Clock hour averages for {selected_date}.")
+            else:
+                 st.caption("This profile averages matching clock hours across the selected range.")
+                 
+        st.dataframe(
+            view_data.rename(columns={"hour": "Hour ending", "avg_price": "Average price"}),
+            use_container_width=True,
+            hide_index=True,
+            height=340,
+            column_config={
+                "Hour ending": st.column_config.DatetimeColumn("Hour ending"),
+                "Average price": st.column_config.NumberColumn(
+                    "Average price (¢/kWh)",
+                    format="%.2f",
+                ),
+            },
+        )
 
     with audit_tab:
         hourly_csv = result.hourly_data.to_csv(index=False)
