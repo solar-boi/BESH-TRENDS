@@ -38,6 +38,11 @@ def _format_hour_label(value: datetime) -> str:
     return value.strftime("%I %p").lstrip("0")
 
 
+def _hour_label_order() -> list[str]:
+    """Return canonical clock-hour label order from midnight through 11 PM."""
+    return [_format_hour_label(datetime(2000, 1, 1, hour)) for hour in range(24)]
+
+
 def build_window_highlights(
     df: pd.DataFrame,
     *,
@@ -212,6 +217,12 @@ def build_hourly_profile(
     profile["Hour"] = profile["hour_of_day"].apply(
         lambda hour: _format_hour_label(datetime(2000, 1, 1, int(hour)))
     )
+    profile["Hour"] = pd.Categorical(
+        profile["Hour"],
+        categories=_hour_label_order(),
+        ordered=True,
+    )
+    profile = profile.sort_values("Hour")
     return profile.set_index("Hour").rename(columns={price_column: value_label})[[value_label]]
 
 
@@ -238,6 +249,12 @@ def build_change_profile(
     profile["Hour"] = profile["hour_of_day"].apply(
         lambda hour: _format_hour_label(datetime(2000, 1, 1, int(hour)))
     )
+    profile["Hour"] = pd.Categorical(
+        profile["Hour"],
+        categories=_hour_label_order(),
+        ordered=True,
+    )
+    profile = profile.sort_values("Hour")
     return profile.set_index("Hour").rename(
         columns={"absolute_change": "Average 5-minute change"}
     )[["Average 5-minute change"]]
