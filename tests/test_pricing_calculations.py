@@ -1,7 +1,6 @@
 """Unit tests for pure pricing calculation helpers."""
 from datetime import date, datetime
 
-import pandas as pd
 import pytest
 
 from dart.services.pricing_calculations import (
@@ -10,21 +9,6 @@ from dart.services.pricing_calculations import (
     compute_stats,
     expand_date_range_to_bounds,
 )
-
-
-def _sample_raw_df() -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "timestamp": [
-                datetime(2024, 2, 1, 12, 0),
-                datetime(2024, 2, 1, 12, 5),
-                datetime(2024, 2, 1, 12, 10),
-                datetime(2024, 2, 1, 13, 0),
-                datetime(2024, 2, 1, 13, 5),
-            ],
-            "price": [5.2, 5.5, 5.1, 6.0, 6.2],
-        }
-    )
 
 
 def test_expand_date_range_to_bounds():
@@ -38,8 +22,8 @@ def test_expand_date_range_to_bounds_invalid():
         expand_date_range_to_bounds(date(2024, 2, 2), date(2024, 2, 1))
 
 
-def test_compute_hourly_hour_ending():
-    hourly = compute_hourly_hour_ending(_sample_raw_df())
+def test_compute_hourly_hour_ending(sample_raw_df):
+    hourly = compute_hourly_hour_ending(sample_raw_df)
     assert len(hourly) == 2
     assert list(hourly.columns) == ["hour", "avg_price"]
     assert hourly.iloc[0]["hour"] == datetime(2024, 2, 1, 13, 0)
@@ -47,18 +31,17 @@ def test_compute_hourly_hour_ending():
     assert hourly.iloc[1]["hour"] == datetime(2024, 2, 1, 14, 0)
 
 
-def test_compute_stats():
-    stats = compute_stats(_sample_raw_df(), "price")
+def test_compute_stats(sample_raw_df):
+    stats = compute_stats(sample_raw_df, "price")
     assert stats["count"] == 5
     assert stats["min"] == 5.1
     assert stats["max"] == 6.2
     assert stats["average"] == pytest.approx(5.6, rel=0.01)
 
 
-def test_build_hourly_with_raw_context():
-    raw_df = _sample_raw_df()
-    hourly_df = compute_hourly_hour_ending(raw_df)
-    context_df = build_hourly_with_raw_context(raw_df, hourly_df)
+def test_build_hourly_with_raw_context(sample_raw_df):
+    hourly_df = compute_hourly_hour_ending(sample_raw_df)
+    context_df = build_hourly_with_raw_context(sample_raw_df, hourly_df)
 
     assert list(context_df.columns) == [
         "hour",

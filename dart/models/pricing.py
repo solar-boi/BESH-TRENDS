@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import List
 
 import pandas as pd
 
@@ -53,7 +52,7 @@ class PriceResponse:
         prices: List of PricePoint objects.
         fetched_at: When the data was fetched from the API.
     """
-    prices: List[PricePoint] = field(default_factory=list)
+    prices: list[PricePoint] = field(default_factory=list)
     fetched_at: datetime = field(default_factory=datetime.now)
 
     def __len__(self) -> int:

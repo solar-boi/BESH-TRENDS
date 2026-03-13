@@ -4,7 +4,7 @@ Utility functions for the DART pricing system.
 import functools
 import logging
 import time
-from typing import Any, Callable, Tuple, Type, TypeVar
+from typing import Any, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def configure_logging(level: int = logging.INFO) -> None:
 def retry_operation(
     max_attempts: int = 3,
     delay: int = 2,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
+    exceptions: tuple[type[Exception], ...] = (Exception,),
 ) -> Callable:
     """
     Decorator for retrying operations that may fail due to network issues.
@@ -72,33 +72,3 @@ def retry_operation(
             raise last_exception  # Should never reach here
         return wrapper
     return decorator
-
-
-def format_price(price_cents: float, decimals: int = 2) -> str:
-    """
-    Format a price in cents for display.
-
-    Args:
-        price_cents: Price in cents per kWh.
-        decimals: Number of decimal places.
-
-    Returns:
-        Formatted string like "5.23¢/kWh".
-    """
-    return f"{price_cents:.{decimals}f}¢/kWh"
-
-
-def format_price_change(old_price: float, new_price: float) -> str:
-    """
-    Format a price change with direction indicator.
-
-    Args:
-        old_price: Previous price in cents.
-        new_price: Current price in cents.
-
-    Returns:
-        Formatted string like "+1.23¢" or "-0.45¢".
-    """
-    change = new_price - old_price
-    sign = "+" if change >= 0 else ""
-    return f"{sign}{change:.2f}¢"

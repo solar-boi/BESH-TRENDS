@@ -32,6 +32,21 @@ class WindowHighlights:
     negative_intervals: int
     count: int
 
+    @classmethod
+    def empty(cls) -> "WindowHighlights":
+        return cls(
+            latest_price=None,
+            latest_timestamp=None,
+            average_price=None,
+            max_price=None,
+            max_timestamp=None,
+            min_price=None,
+            min_timestamp=None,
+            spread=None,
+            negative_intervals=0,
+            count=0,
+        )
+
 
 def _format_hour_label(value: datetime) -> str:
     """Format an hour label without a leading zero."""
@@ -51,33 +66,11 @@ def build_window_highlights(
 ) -> WindowHighlights:
     """Extract headline metrics from a price series."""
     if df.empty or price_column not in df.columns or timestamp_column not in df.columns:
-        return WindowHighlights(
-            latest_price=None,
-            latest_timestamp=None,
-            average_price=None,
-            max_price=None,
-            max_timestamp=None,
-            min_price=None,
-            min_timestamp=None,
-            spread=None,
-            negative_intervals=0,
-            count=0,
-        )
+        return WindowHighlights.empty()
 
     valid = df[[timestamp_column, price_column]].dropna().sort_values(timestamp_column)
     if valid.empty:
-        return WindowHighlights(
-            latest_price=None,
-            latest_timestamp=None,
-            average_price=None,
-            max_price=None,
-            max_timestamp=None,
-            min_price=None,
-            min_timestamp=None,
-            spread=None,
-            negative_intervals=0,
-            count=0,
-        )
+        return WindowHighlights.empty()
 
     latest_row = valid.iloc[-1]
     max_row = valid.loc[valid[price_column].idxmax()]
