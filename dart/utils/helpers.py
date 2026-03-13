@@ -4,7 +4,7 @@ Utility functions for the DART pricing system.
 import functools
 import logging
 import time
-from typing import Any, Callable, Tuple, Type, TypeVar
+from typing import Any, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def configure_logging(level: int = logging.INFO) -> None:
 def retry_operation(
     max_attempts: int = 3,
     delay: int = 2,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
+    exceptions: tuple[type[Exception], ...] = (Exception,),
 ) -> Callable:
     """
     Decorator for retrying operations that may fail due to network issues.

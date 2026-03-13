@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime
-from typing import Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -123,7 +123,7 @@ class PricingService:
             logger.error("Failed to fetch custom range: %s", e)
             return pd.DataFrame(columns=["timestamp", "price"])
 
-    def get_current_price(self) -> Tuple[datetime, float]:
+    def get_current_price(self) -> tuple[datetime, float]:
         """
         Get the current hour's average price.
 
