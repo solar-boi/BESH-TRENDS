@@ -216,7 +216,7 @@ def render_current_price(service: PricingService) -> None:
         delta_to_average = price - recent_highlights.average_price
 
     narrative = build_price_narrative(price, recent_highlights.average_price)
-    col1, col2, col3 = st.columns([1.35, 1, 1], gap="large")
+    col1, col2, col3 = st.columns([1, 1, 1], gap="large")
 
     with col1:
         with st.container(border=True):
@@ -227,7 +227,7 @@ def render_current_price(service: PricingService) -> None:
                 delta=_format_delta(delta_to_average, "vs 24h average"),
             )
             st.caption(
-                f"Updated {_format_timestamp(timestamp, include_date=True)} from the current-hour endpoint."
+                f" {_format_timestamp(timestamp, include_date=True)} via current endpoint."
             )
 
     with col2:
@@ -245,11 +245,11 @@ def render_current_price(service: PricingService) -> None:
             st.markdown("##### Market behavior")
             st.metric("Negative intervals", str(recent_highlights.negative_intervals))
             st.caption(
-                f"Tracking {recent_highlights.count} recent points ending "
+                f" {recent_highlights.count} recent points ending "
                 f"{_format_timestamp(recent_highlights.latest_timestamp, include_date=True)}."
             )
 
-    _render_narrative_message(narrative.title, narrative.level, narrative.description)
+## AI ANALYSIS HERE - ADD LATER ## 
 
 
 def render_last_24_hours(service: PricingService) -> None:
@@ -318,17 +318,8 @@ def render_last_24_hours(service: PricingService) -> None:
                 )
         with c2:
             with st.container(border=True):
-                st.markdown("##### Interpretation")
-                if highlights.negative_intervals > 0:
-                    st.success(
-                        f"The feed dipped below zero {highlights.negative_intervals} times in the last"
-                        " 24 hours, which signals at least one unusually soft-demand window."
-                    )
-                else:
-                    st.info(
-                        "No negative 5-minute intervals appeared in the last 24 hours, so prices stayed"
-                        " above zero throughout the observed window."
-                    )
+                st.markdown("##### FUTURE AI ANALYSIS")
+
 
     with pattern_tab:
         c1, c2 = st.columns(2, gap="large")
