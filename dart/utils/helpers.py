@@ -72,5 +72,3 @@ def retry_operation(
             raise last_exception  # Should never reach here
         return wrapper
     return decorator
-
-

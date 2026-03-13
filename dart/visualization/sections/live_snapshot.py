@@ -4,6 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from dart.services.pricing_service import PricingService
+from dart.visualization.charts import render_narrative_message
 from dart.visualization.data_layer import fetch_current_price, fetch_last_24_hours
 from dart.visualization.formatting import format_delta, format_price, format_timestamp
 from dart.visualization.ui_helpers import build_price_narrative, build_window_highlights
@@ -59,8 +60,6 @@ def render_current_price(service: PricingService) -> None:
             )
 
     narrative = build_price_narrative(price, recent_highlights.average_price)
-    from dart.visualization.charts import render_narrative_message
-
     render_narrative_message(
         f"Current hour: {narrative.title}",
         narrative.level,

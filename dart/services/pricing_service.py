@@ -9,8 +9,6 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime
-from typing import Any
-
 import pandas as pd
 
 from dart.api.comed_client import ComEdClient
