@@ -1,10 +1,13 @@
 """Tests for visualization helper functions."""
+from __future__ import annotations
 
 from datetime import datetime
 
 import pandas as pd
+import pytest
 
 from dart.visualization.ui_helpers import (
+    WindowHighlights,
     build_change_profile,
     build_daily_summary,
     build_hourly_profile,
@@ -14,8 +17,9 @@ from dart.visualization.ui_helpers import (
 )
 
 
-def create_raw_prices() -> pd.DataFrame:
-    """Create a small raw price sample for view-model tests."""
+@pytest.fixture()
+def raw_prices_with_negative() -> pd.DataFrame:
+    """Raw prices that include a negative value for narrative/highlight tests."""
     return pd.DataFrame(
         {
             "timestamp": [
@@ -29,24 +33,8 @@ def create_raw_prices() -> pd.DataFrame:
     )
 
 
-def create_hourly_prices() -> pd.DataFrame:
-    """Create hourly data spanning two days."""
-    return pd.DataFrame(
-        {
-            "hour": [
-                datetime(2024, 2, 1, 1, 0),
-                datetime(2024, 2, 1, 2, 0),
-                datetime(2024, 2, 2, 1, 0),
-                datetime(2024, 2, 2, 2, 0),
-            ],
-            "avg_price": [2.0, 6.0, 4.0, 8.0],
-        }
-    )
-
-
-def test_build_window_highlights_extracts_key_metrics():
-    """Highlights include extrema, latest point, and negative interval count."""
-    highlights = build_window_highlights(create_raw_prices())
+def test_build_window_highlights_extracts_key_metrics(raw_prices_with_negative):
+    highlights = build_window_highlights(raw_prices_with_negative)
 
     assert highlights.latest_price == 9.0
     assert highlights.average_price == 5.0
@@ -57,8 +45,13 @@ def test_build_window_highlights_extracts_key_metrics():
     assert highlights.count == 4
 
 
+def test_window_highlights_empty_factory():
+    empty = WindowHighlights.empty()
+    assert empty.count == 0
+    assert empty.latest_price is None
+
+
 def test_build_price_narrative_classifies_peak_period():
-    """High prices produce a peak-pricing narrative."""
     narrative = build_price_narrative(11.0, 6.0)
 
     assert narrative.level == "error"
@@ -66,9 +59,8 @@ def test_build_price_narrative_classifies_peak_period():
     assert "5.00 cents above" in narrative.description
 
 
-def test_build_trend_chart_data_adds_rolling_series():
-    """Trend chart data is sorted and includes a rolling average."""
-    df = create_raw_prices().iloc[[2, 0, 3, 1]]
+def test_build_trend_chart_data_adds_rolling_series(raw_prices_with_negative):
+    df = raw_prices_with_negative.iloc[[2, 0, 3, 1]]
     trend = build_trend_chart_data(
         df,
         rolling_window=2,
@@ -81,21 +73,17 @@ def test_build_trend_chart_data_adds_rolling_series():
     assert trend.iloc[1]["Smoothed"] == 2.0
 
 
-def test_build_hourly_and_change_profiles_group_by_clock_hour():
-    """Clock-hour summaries expose average levels and movement."""
-    raw_df = create_raw_prices()
-
-    hourly_profile = build_hourly_profile(raw_df)
-    change_profile = build_change_profile(raw_df)
+def test_build_hourly_and_change_profiles_group_by_clock_hour(raw_prices_with_negative):
+    hourly_profile = build_hourly_profile(raw_prices_with_negative)
+    change_profile = build_change_profile(raw_prices_with_negative)
 
     assert list(hourly_profile.index) == ["12 PM", "1 PM"]
     assert hourly_profile.loc["12 PM", "Average price"] == 2.0
     assert change_profile.loc["1 PM", "Average 5-minute change"] == 5.0
 
 
-def test_build_daily_summary_returns_sparkline_ready_rows():
-    """Daily summary includes one row per day and intraday list values."""
-    summary = build_daily_summary(create_hourly_prices())
+def test_build_daily_summary_returns_sparkline_ready_rows(sample_hourly_two_days):
+    summary = build_daily_summary(sample_hourly_two_days)
 
     assert list(summary["Date"]) == ["2024-02-01", "2024-02-02"]
     assert summary.loc[0, "Average hourly price"] == 4.0

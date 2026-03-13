@@ -1,26 +1,14 @@
-"""
-Unit tests for the PricingService.
-"""
-import pytest
-import pandas as pd
+"""Unit tests for the PricingService."""
+from __future__ import annotations
+
 from datetime import date, datetime
 from unittest.mock import Mock
 
-from dart.services.pricing_service import PricingService
+import pandas as pd
+import pytest
+
 from dart.models.pricing import PricePoint, PriceResponse
-
-
-# Sample data for testing
-def create_sample_response():
-    """Create a sample PriceResponse for testing."""
-    prices = [
-        PricePoint(timestamp=datetime(2024, 2, 1, 12, 0), price=5.2),
-        PricePoint(timestamp=datetime(2024, 2, 1, 12, 5), price=5.5),
-        PricePoint(timestamp=datetime(2024, 2, 1, 12, 10), price=5.1),
-        PricePoint(timestamp=datetime(2024, 2, 1, 13, 0), price=6.0),
-        PricePoint(timestamp=datetime(2024, 2, 1, 13, 5), price=6.2),
-    ]
-    return PriceResponse(prices=prices)
+from dart.services.pricing_service import PricingService
 
 
 class TestPricingService:
@@ -37,10 +25,10 @@ class TestPricingService:
         service = PricingService(client=mock_client)
         assert service.client is mock_client
 
-    def test_get_last_24_hours_success(self):
+    def test_get_last_24_hours_success(self, sample_price_response):
         """Returns DataFrame from 5-minute prices."""
         mock_client = Mock()
-        mock_client.get_five_minute_prices.return_value = create_sample_response()
+        mock_client.get_five_minute_prices.return_value = sample_price_response
         
         service = PricingService(client=mock_client)
         df = service.get_last_24_hours()
@@ -63,10 +51,10 @@ class TestPricingService:
         assert df.empty
         assert list(df.columns) == ["timestamp", "price"]
 
-    def test_get_custom_range_success(self):
+    def test_get_custom_range_success(self, sample_price_response):
         """Returns DataFrame for custom date range."""
         mock_client = Mock()
-        mock_client.get_five_minute_prices_range.return_value = create_sample_response()
+        mock_client.get_five_minute_prices_range.return_value = sample_price_response
         
         service = PricingService(client=mock_client)
         start = datetime(2024, 2, 1, 8, 0)
@@ -117,10 +105,10 @@ class TestPricingService:
         assert timestamp == expected_time
         assert price == expected_price
 
-    def test_get_price_statistics(self):
+    def test_get_price_statistics(self, sample_price_response):
         """Returns statistics dict."""
         mock_client = Mock()
-        mock_client.get_five_minute_prices.return_value = create_sample_response()
+        mock_client.get_five_minute_prices.return_value = sample_price_response
         
         service = PricingService(client=mock_client)
         stats = service.get_price_statistics()
@@ -130,10 +118,10 @@ class TestPricingService:
         assert stats["count"] == 5
         assert stats["average"] == pytest.approx(5.6, rel=0.01)
 
-    def test_get_hourly_averages(self):
+    def test_get_hourly_averages(self, sample_price_response):
         """Returns hourly aggregated DataFrame."""
         mock_client = Mock()
-        mock_client.get_five_minute_prices.return_value = create_sample_response()
+        mock_client.get_five_minute_prices.return_value = sample_price_response
         
         service = PricingService(client=mock_client)
         df = service.get_hourly_averages()
@@ -155,10 +143,10 @@ class TestPricingService:
         assert isinstance(df, pd.DataFrame)
         assert df.empty
 
-    def test_get_custom_range_analysis(self):
+    def test_get_custom_range_analysis(self, sample_price_response):
         """Returns canonical custom-range backend result."""
         mock_client = Mock()
-        mock_client.get_five_minute_prices_range.return_value = create_sample_response()
+        mock_client.get_five_minute_prices_range.return_value = sample_price_response
         mock_audit_logger = Mock()
 
         service = PricingService(client=mock_client, audit_logger=mock_audit_logger)
