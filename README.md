@@ -2,24 +2,24 @@
 
 DART is a Streamlit-based dashboard and Python package for exploring ComEd real-time electricity pricing data through the [ComEd Hourly Pricing API](https://hourlypricing.comed.com/hp-api/).
 
-The project is organized as a small layered application:
+The project is organized as a layered application with a modular visualization layer:
 
-- `dart.api` handles ComEd API requests
-- `dart.services` contains business logic and aggregation workflows
-- `dart.models` defines typed result objects
-- `dart.visualization` provides the Streamlit UI
-- `dart.utils` contains shared helpers and audit logging support
+- `dart.api` handles ComEd API requests with retries and error handling
+- `dart.services` contains business logic, aggregation workflows, and pure calculation helpers
+- `dart.models` defines typed result objects (`PricePoint`, `PriceResponse`, `PriceStats`, `CustomRangeResult`)
+- `dart.visualization` provides the Streamlit UI, split into independent section modules
+- `dart.utils` contains shared helpers, audit logging, analytics tracking, and share-link utilities
+- `dart.config` centralizes runtime settings with environment variable overrides
 
-## What The App Does
+## What the App Does
 
 DART focuses on a few practical pricing workflows:
 
-- Shows the current hour average price from ComEd
-- Displays the latest 24 hours of raw 5-minute pricing data
-- Computes summary statistics in the backend service layer
-- Supports custom date range analysis with hourly aggregation
-- Exposes the raw records used to build each hourly aggregate
-- Optionally writes structured audit logs for verification and troubleshooting
+- Shows the current hour average price from ComEd with context against the recent 24-hour range
+- Displays the latest 24 hours of raw 5-minute pricing data with trend charts and hourly patterns
+- Supports custom date range analysis with hourly aggregation, daily summaries, and sparkline profiles
+- Exposes the raw records used to build each hourly aggregate for audit and verification
+- Optionally writes structured audit logs for troubleshooting
 
 ## Requirements
 
@@ -56,7 +56,13 @@ For local development with test dependencies:
 pip install -e ".[dev]"
 ```
 
-## Running The Application
+Or using the dev requirements file:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+## Running the Application
 
 ### Launch the dashboard
 
@@ -138,40 +144,68 @@ dart/
   __init__.py
   __main__.py
   api/
-    comed_client.py
+    comed_client.py          # ComEd HTTP client with retries
   config/
-    settings.py
+    settings.py              # Centralized env-var configuration
   models/
-    pricing.py
+    pricing.py               # Typed data models
   services/
-    pricing_calculations.py
-    pricing_service.py
+    pricing_calculations.py  # Pure aggregation / statistics helpers
+    pricing_service.py       # High-level orchestration and audit logging
   utils/
-    analytics.py
-    helpers.py
-    logger_util.py
-    pricing_audit_logger.py
-    share_links.py
+    analytics.py             # Lightweight event tracking
+    helpers.py               # Logging setup, retry decorator
+    logger_util.py           # Streamlit log buffer
+    pricing_audit_logger.py  # JSONL audit logger
+    share_links.py           # Share URL builders
   visualization/
-    app.py
+    app.py                   # Streamlit entry point and page orchestrator
+    charts.py                # Reusable Altair chart builders
+    data_layer.py            # Cached data access (Streamlit caching)
+    formatting.py            # Price / timestamp display formatters
+    ui_helpers.py            # View-model builders (highlights, narratives, profiles)
+    sections/
+      sidebar.py             # Sidebar controls and guidance
+      header.py              # Page introduction
+      live_snapshot.py       # Current-hour price section
+      recent_prices.py       # Last 24-hour section
+      custom_range.py        # Custom date-range analysis section
 tests/
+  conftest.py                # Shared test fixtures
   test_analytics.py
   test_comed_client.py
+  test_formatting.py
   test_models.py
   test_package_layout.py
   test_pricing_audit_logger.py
   test_pricing_calculations.py
   test_pricing_service.py
   test_share_links.py
+  test_ui_helpers.py
 ```
 
 ### Responsibilities by layer
 
-- `dart.api.comed_client` wraps ComEd HTTP calls, retries, and response parsing
-- `dart.services.pricing_calculations` contains pure aggregation and statistics helpers
-- `dart.services.pricing_service` orchestrates data fetches, transforms, and audit logging
-- `dart.models.pricing` provides `PricePoint`, `PriceResponse`, `PriceStats`, and `CustomRangeResult`
-- `dart.visualization.app` renders the dashboard with cached service calls
+- **`dart.api.comed_client`** wraps ComEd HTTP calls, retries, and response parsing
+- **`dart.services.pricing_calculations`** contains pure aggregation and statistics helpers
+- **`dart.services.pricing_service`** orchestrates data fetches, transforms, and audit logging
+- **`dart.models.pricing`** provides `PricePoint`, `PriceResponse`, `PriceStats`, and `CustomRangeResult`
+- **`dart.visualization.app`** configures the Streamlit page and orchestrates section renderers
+- **`dart.visualization.data_layer`** manages Streamlit-cached data access
+- **`dart.visualization.charts`** provides reusable Altair chart components
+- **`dart.visualization.formatting`** handles price, timestamp, and delta display formatting
+- **`dart.visualization.ui_helpers`** builds view-model objects (window highlights, price narratives, profiles)
+- **`dart.visualization.sections.*`** each module renders one dashboard section independently
+
+### Data flow
+
+```text
+ComEd API  →  ComEdClient  →  PricingService  →  data_layer (cached)  →  section renderers
+                  ↓                 ↓
+             PriceResponse    CustomRangeResult
+                  ↓                 ↓
+           pricing_calculations (pure functions)
+```
 
 ## Configuration
 
@@ -220,6 +254,8 @@ If you want coverage output, install `pytest-cov` separately and run:
 pytest tests -v --cov=dart
 ```
 
+Shared test fixtures are defined in `tests/conftest.py` and automatically available to all test modules.
+
 ## API Endpoints
 
 DART currently uses these ComEd API endpoints:
@@ -234,7 +270,9 @@ See the official [ComEd Hourly Pricing API documentation](https://hourlypricing.
 
 - The installable package name is `dart-pricing-pipeline`
 - The importable Python package is `dart`
+- Packaging is managed via `pyproject.toml` (PEP 621)
 - Runtime artifacts such as audit logs are written under `.dart/` by default
+- Production dependencies are listed in `requirements.txt`; dev dependencies (including pytest) are in `requirements-dev.txt`
 
 ## License
 

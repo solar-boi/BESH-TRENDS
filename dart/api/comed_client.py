@@ -52,6 +52,12 @@ class ComEdClient:
         base_url: str | None = None,
         timeout: int | None = None,
     ) -> None:
+        """Initialize the ComEd API client.
+
+        Args:
+            base_url: Override the default API base URL.
+            timeout: Request timeout in seconds.
+        """
         self.base_url = base_url or Config.COMED_API_BASE_URL
         self.timeout = timeout or Config.REQUEST_TIMEOUT
 
