@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import pandas as pd
 import streamlit as st
 
 from dart.services.pricing_service import PricingService
@@ -10,7 +11,10 @@ from dart.visualization.charts import (
     render_interactive_line_chart,
     render_narrative_message,
 )
-from dart.visualization.data_layer import fetch_custom_range_analysis
+from dart.visualization.data_layer import (
+    fetch_custom_range_analysis,
+    fetch_day_ahead_prices,
+)
 from dart.visualization.formatting import format_price, format_timestamp
 from dart.visualization.ui_helpers import (
     build_daily_summary,
@@ -89,6 +93,7 @@ def render_custom_range(service: PricingService) -> None:
         value_label="Average hourly price",
     )
     daily_summary = build_daily_summary(result.hourly_data)
+    dart_comparison = _build_dart_comparison(result.hourly_data, start_date, end_date)
 
     _render_metrics_row(result, hourly_highlights)
 
@@ -101,8 +106,8 @@ def render_custom_range(service: PricingService) -> None:
         f"Requested dates: {result.requested_start_date} to {result.requested_end_date}"
     )
 
-    overview_tab, daily_tab, hourly_tab, audit_tab = st.tabs(
-        ["Overview", "Daily summary", "Hourly detail", "Raw & audit"]
+    overview_tab, dart_tab, daily_tab, hourly_tab, audit_tab = st.tabs(
+        ["Overview", "DART", "Daily summary", "Hourly detail", "Raw & audit"]
     )
 
     with overview_tab:
@@ -113,6 +118,9 @@ def render_custom_range(service: PricingService) -> None:
             hourly_highlights,
             result,
         )
+
+    with dart_tab:
+        _render_dart_tab(dart_comparison, start_date, end_date)
 
     selected_date = None
     with daily_tab:
@@ -349,3 +357,124 @@ def _render_audit_tab(result, start_date, end_date) -> None:
             hide_index=True,
             height=300,
         )
+
+
+def _build_dart_comparison(
+    hourly_data: pd.DataFrame,
+    start_date,
+    end_date,
+) -> pd.DataFrame:
+    """Build merged real-time vs day-ahead comparison for the requested dates."""
+    if hourly_data.empty:
+        return pd.DataFrame(
+            columns=[
+                "hour",
+                "Real-time hourly average",
+                "Day-ahead hourly price",
+                "Spread (real-time - day-ahead)",
+            ]
+        )
+
+    realtime = hourly_data.copy()
+    realtime["hour"] = pd.to_datetime(realtime["hour"], errors="coerce")
+    realtime = realtime.dropna(subset=["hour"]).rename(
+        columns={"avg_price": "Real-time hourly average"}
+    )
+
+    realtime = realtime[
+        realtime["hour"].dt.date.between(start_date, end_date)
+    ][["hour", "Real-time hourly average"]]
+
+    day_ahead = fetch_day_ahead_prices().copy()
+    day_ahead["hour"] = pd.to_datetime(day_ahead["hour"], errors="coerce")
+    day_ahead = day_ahead.dropna(subset=["hour"]).rename(
+        columns={"day_ahead_price_cents": "Day-ahead hourly price"}
+    )
+    day_ahead = day_ahead[
+        day_ahead["hour"].dt.date.between(start_date, end_date)
+    ][["hour", "Day-ahead hourly price"]]
+
+    merged = realtime.merge(day_ahead, on="hour", how="left")
+    merged["Spread (real-time - day-ahead)"] = (
+        merged["Real-time hourly average"] - merged["Day-ahead hourly price"]
+    )
+    return merged.sort_values("hour").reset_index(drop=True)
+
+
+def _render_dart_tab(comparison_df: pd.DataFrame, start_date, end_date) -> None:
+    """Render day-ahead vs real-time comparison visuals and details."""
+    if comparison_df.empty:
+        st.info("No hourly real-time data is available for the selected range.")
+        return
+
+    overlap = comparison_df.dropna(subset=["Day-ahead hourly price"]).copy()
+
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.metric("Overlap hours", str(len(overlap)))
+    with m2:
+        mean_abs_spread = (
+            overlap["Spread (real-time - day-ahead)"].abs().mean()
+            if not overlap.empty
+            else None
+        )
+        st.metric(
+            "Mean absolute spread",
+            f"{mean_abs_spread:.2f}¢/kWh" if mean_abs_spread is not None else "N/A",
+        )
+    with m3:
+        max_positive = (
+            overlap["Spread (real-time - day-ahead)"].max()
+            if not overlap.empty
+            else None
+        )
+        st.metric(
+            "Max positive spread",
+            f"{max_positive:.2f}¢/kWh" if max_positive is not None else "N/A",
+        )
+    with m4:
+        max_negative = (
+            overlap["Spread (real-time - day-ahead)"].min()
+            if not overlap.empty
+            else None
+        )
+        st.metric(
+            "Max negative spread",
+            f"{max_negative:.2f}¢/kWh" if max_negative is not None else "N/A",
+        )
+
+    if overlap.empty:
+        st.warning(
+            "Day-ahead CSV data was not found for this date range. Showing real-time series only."
+        )
+    else:
+        st.caption(
+            f"Comparing {len(overlap)} matched hourly buckets between {start_date} and {end_date}."
+        )
+
+    with st.container(border=True):
+        st.markdown("##### Real-time vs day-ahead hourly pricing")
+        render_interactive_line_chart(
+            comparison_df[["hour", "Real-time hourly average", "Day-ahead hourly price"]],
+            x_col="hour",
+            y_cols=["Real-time hourly average", "Day-ahead hourly price"],
+        )
+
+    st.dataframe(
+        comparison_df.rename(columns={"hour": "Hour ending"}),
+        use_container_width=True,
+        hide_index=True,
+        height=340,
+        column_config={
+            "Hour ending": st.column_config.DatetimeColumn("Hour ending"),
+            "Real-time hourly average": st.column_config.NumberColumn(
+                "Real-time (¢/kWh)", format="%.2f"
+            ),
+            "Day-ahead hourly price": st.column_config.NumberColumn(
+                "Day-ahead (¢/kWh)", format="%.2f"
+            ),
+            "Spread (real-time - day-ahead)": st.column_config.NumberColumn(
+                "Spread (¢/kWh)", format="%.2f"
+            ),
+        },
+    )

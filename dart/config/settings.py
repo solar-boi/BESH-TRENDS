@@ -48,6 +48,14 @@ class Config:
     )
     PRICING_AUDIT_SAMPLE_LIMIT = int(os.getenv("PRICING_AUDIT_SAMPLE_LIMIT", 500))
 
+    # Day-ahead pricing CSV used by the DART comparison tab
+    DAY_AHEAD_PRICING_FILE = Path(
+        os.getenv(
+            "DAY_AHEAD_PRICING_FILE",
+            str(BASE_DIR / "DAY_AHEAD_PRICING.csv"),
+        )
+    )
+
     @classmethod
     def get_all_settings(cls) -> dict:
         """Get all configuration settings as a dictionary."""

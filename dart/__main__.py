@@ -8,6 +8,7 @@ Usage:
     python -m dart --test-api         # Test API connectivity
 """
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -51,9 +52,15 @@ def run_dashboard():
     import subprocess
 
     app_path = Path(__file__).parent / "visualization" / "app.py"
+    project_root = str(Path(__file__).resolve().parents[1])
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        f"{project_root}:{existing_pythonpath}" if existing_pythonpath else project_root
+    )
     print(f"Starting dashboard: {app_path}")
 
-    subprocess.run(["streamlit", "run", str(app_path)])
+    subprocess.run(["streamlit", "run", str(app_path)], env=env)
 
 
 def main():
