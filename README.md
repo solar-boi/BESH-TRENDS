@@ -18,6 +18,7 @@ DART focuses on a few practical pricing workflows:
 - Shows the current hour average price from ComEd with context against the recent 24-hour range
 - Displays the latest 24 hours of raw 5-minute pricing data with trend charts and hourly patterns
 - Supports custom date range analysis with hourly aggregation, daily summaries, and sparkline profiles
+- Adds a DART comparison tab for custom ranges that overlays real-time hourly prices with day-ahead hourly prices from CSV data
 - Exposes the raw records used to build each hourly aggregate for audit and verification
 - Optionally writes structured audit logs for troubleshooting
 
@@ -140,6 +141,7 @@ print(result.raw_stats.count, result.hourly_stats.average_price)
 ## Architecture Overview
 
 ```text
+DAY_AHEAD_PRICING.csv             # Day-ahead hourly reference prices (CSV)
 dart/
   __init__.py
   __main__.py
@@ -201,11 +203,25 @@ tests/
 
 ```text
 ComEd API  →  ComEdClient  →  PricingService  →  data_layer (cached)  →  section renderers
-                  ↓                 ↓
-             PriceResponse    CustomRangeResult
-                  ↓                 ↓
-           pricing_calculations (pure functions)
+                  ↓                 ↓                    ↑
+             PriceResponse    CustomRangeResult          │
+                  ↓                 ↓                    │
+           pricing_calculations (pure functions)   DAY_AHEAD_PRICING.csv
 ```
+
+## DART Day-Ahead Comparison
+
+The custom date-range section includes a **DART** tab between **Overview** and **Daily summary**.
+
+For the selected date window, the tab:
+
+- reuses the existing real-time hourly aggregation (`result.hourly_data`)
+- loads day-ahead hourly data from `DAY_AHEAD_PRICING.csv`
+- converts day-ahead values from `$ / kWh` to `¢ / kWh` for direct comparison
+- joins by hour-ending timestamp and computes spread (`real-time - day-ahead`)
+- renders a two-series line chart, spread metrics, and a detailed comparison table
+
+If no day-ahead rows match the selected range, the tab keeps rendering and shows a graceful warning.
 
 ## Configuration
 
@@ -224,6 +240,7 @@ Runtime configuration is centralized in `dart/config/settings.py` and can be ove
 | `PRICING_AUDIT_ENABLED` | `true` | Enables structured audit logging for custom-range analysis |
 | `PRICING_AUDIT_FILE` | `.dart/pricing_audit.jsonl` | JSONL output path for pricing audit events |
 | `PRICING_AUDIT_SAMPLE_LIMIT` | `500` | Maximum number of records included per audit section |
+| `DAY_AHEAD_PRICING_FILE` | `DAY_AHEAD_PRICING.csv` | Path to the day-ahead hourly CSV used by the DART comparison tab |
 
 ## Audit Logging
 
@@ -273,6 +290,7 @@ See the official [ComEd Hourly Pricing API documentation](https://hourlypricing.
 - Packaging is managed via `pyproject.toml` (PEP 621)
 - Runtime artifacts such as audit logs are written under `.dart/` by default
 - Production dependencies are listed in `requirements.txt`; dev dependencies (including pytest) are in `requirements-dev.txt`
+- Day-ahead CSV values are expected in `$ / kWh` and are converted to `¢ / kWh` in the DART tab for apples-to-apples charting
 
 ## License
 
